@@ -44,16 +44,17 @@ lr_decay = bool(int(sys.argv[4])) if len(sys.argv) > 4 else False # wether or no
 lr_min = float(sys.argv[5]) if len(sys.argv) > 5 else 0.001 # min value for the lr
 num_epochs = int(sys.argv[6]) if len(sys.argv) > 6 else 10
 mse = bool(int(sys.argv[7])) if len(sys.argv) > 7 else True
+onlyRotDefSpecials = bool(int(sys.argv[8])) if len(sys.argv) > 8 else True # only deform/ rotate a subset of data, overrides deform and rotate for the special cases
 
-batchnorm = bool(int(sys.argv[8])) if len(sys.argv) > 8 else True  # wether or not to use batchnorm
-leaky = bool(int(sys.argv[9])) if len(sys.argv) > 9 else True  # whether to use leaky ReLU
-max_pool = bool(int(sys.argv[10])) if len(sys.argv) > 10 else True  # if True use MaxPooling, else AvgPooling
-sgd = bool(int(sys.argv[11])) if len(sys.argv) > 11 else False  # if True use SGD optimizer, else Adam optimizer
+batchnorm = bool(int(sys.argv[9])) if len(sys.argv) > 9 else True  # wether or not to use batchnorm
+leaky = bool(int(sys.argv[10])) if len(sys.argv) > 10 else True  # whether to use leaky ReLU
+max_pool = bool(int(sys.argv[11])) if len(sys.argv) > 11 else True  # if True use MaxPooling, else AvgPooling
+sgd = bool(int(sys.argv[12])) if len(sys.argv) > 12 else False  # if True use SGD optimizer, else Adam optimizer
 
-deform = bool(int(sys.argv[12])) if len(sys.argv) > 12 else False  # data augmentation: use elastic deformation on the images
-rotate = bool(int(sys.argv[13])) if len(sys.argv) > 13 else False  # data augmentation: rotate x and y of the input tensor
-alpha = float(sys.argv[14]) if len(sys.argv) > 14 else 0.2  # alpha parameter for elastic deformation on data
-sigma = float(sys.argv[15]) if len(sys.argv) > 15 else 0.1  # sigma parameter for elastic deformation on data
+deform = bool(int(sys.argv[13])) if len(sys.argv) > 13 else False  # data augmentation: use elastic deformation on the images
+rotate = bool(int(sys.argv[14])) if len(sys.argv) > 14 else False  # data augmentation: rotate x and y of the input tensor
+alpha = float(sys.argv[15]) if len(sys.argv) > 15 else 0.2  # alpha parameter for elastic deformation on data
+sigma = float(sys.argv[16]) if len(sys.argv) > 16 else 0.1  # sigma parameter for elastic deformation on data
 
 epoch_sample_interval = 5
 weight_decay = 0.0
@@ -63,7 +64,7 @@ beta1 = 0.99
 
 DatasetClass = dataset_classes[dc_key]
 
-nans = [1,8,14,15,28,51,77,99,112]
+nans = [1,8,14,15,28,51,77,99,112] # subset of the dataset: all of the data that isnt supposed to predict a lesion at all
 
 dataset = DatasetClass(data_dir, rotate=rotate, deform=deform, alpha=alpha, sigma=sigma, onlyRotDefSpecials=True, specials=nans)
 
@@ -100,9 +101,9 @@ train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_w
 val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, num_workers=workers)
 
 date = datetime.now().strftime('%Y-%m-%d')
-name = f'{tag}_{date}_{num_epochs}_bs{batch_size}_lr{lr}'
+name = f'{tag}_{date}_{num_epochs}_bs{batch_size}_lr{lr}{"_DecayTo_" if lr_decay else ""}{lr_min if lr_decay else ""}'
 name += f'_{gen.__class__.__name__}_{opt_gen.__class__.__name__}_{criterion.__class__.__name__}_{dataset.__class__.__name__}'
-name += f'{"_rot" if rotate else ""}{"_def" if deform else ""}'
+name += f'{"_rot" if rotate else ""}{"_def" if deform else ""}{"_RotDefSpecialsOnly" if onlyRotDefSpecials else ""}'
 results_dir = os.path.join(results_dir, name)
 plot_dir = os.path.join(results_dir, 'plots')
 train_plot_dir = os.path.join(plot_dir, 'training')
@@ -152,11 +153,11 @@ def startup_logs():
     logger.log(f'Batch size: {batch_size}')
     # logger.log(f'Random Seed: {seed}')
     logger.log('\n== Hardware ==')
-    logger.log(f'Device: {str(device)}')
-    logger.log(f'Device name:{torch.cuda.get_device_name()}')
-    logger.log(f'Device count:{torch.cuda.device_count()}')
-    logger.log(f'Current device:{torch.cuda.current_device()}')
-    logger.log(f'Capability: {torch.cuda.get_device_capability()}')
+    # logger.log(f'Device: {str(device)}')
+    # logger.log(f'Device name:{torch.cuda.get_device_name()}')
+    # logger.log(f'Device count:{torch.cuda.device_count()}')
+    # logger.log(f'Current device:{torch.cuda.current_device()}')
+    # logger.log(f'Capability: {torch.cuda.get_device_capability()}')
     # logger.log(f'\nStarted {"GAN" if gan else "UNet"} training at {start_time.strftime("%H:%M:%S")}')
 
 def compute_metrics(data_obj, key, generator, metrics, plot_dir):
