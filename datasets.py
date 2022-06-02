@@ -14,6 +14,7 @@ import pandas as pd
 class NiftyDataset(Dataset):
     in_channels = None
     out_channels = None
+    dimensionality = None
     size = 50
     features = 48
     # this was for an old way to normalize data i think
@@ -114,7 +115,11 @@ class NiftyDataset(Dataset):
         data = nib.load(path).get_fdata()
         data[numpy.isnan(data)] = 0.0
         shape = data.shape
-        data = torch.tensor(resize(data, (self.size, self.size , self.size ), order=3)) #resize image
+        if self.dimensionality is None:
+            self.dimensionality = shape
+        elif self.dimensionality != shape:
+            print("mismatch in dim of dataset")
+        data = torch.tensor(resize(data, (self.size, self.size , self.size ), order=0)) #resize image
         data = torch.flip(data, dims = [0]) #flip one dimension
         data = torch.unsqueeze(data[1:-1, 1:-1, 1:-1], dim=0) #shave off edge and add zeroed out dimension in front (for combinding different modalities, as they are concatenated in this dim)
 
@@ -160,12 +165,12 @@ class NiftyDataset(Dataset):
     def normalize(self, data, pattern=None):  # normalize values to (0, 1)
         data = torch.tensor(data) if type(data) is not torch.Tensor else data
 
-        # normalize data (standard score)
-        # mean = self.mean_std[pattern]['mean'] if pattern and self.set_norm else data.mean()
-        # std = self.mean_std[pattern]['std'] if pattern and self.set_norm else data.std()
-        mean = data.mean()
-        std = data.std()
-        data = (data - mean) / std
+        # # normalize data (standard score)
+        # # mean = self.mean_std[pattern]['mean'] if pattern and self.set_norm else data.mean()
+        # # std = self.mean_std[pattern]['std'] if pattern and self.set_norm else data.std()
+        # mean = data.mean()
+        # std = data.std()
+        # data = (data - mean) / std
 
         # transform data to (0, 1)
         min = data.min()
@@ -177,19 +182,20 @@ class NiftyDataset(Dataset):
     #windowing
     def window(self, data, type):
 
-        if type == 'ReslicedCT-A':
+        if 'CT-A' in type:
             data[data > 350] = 350
             data[data < 0] = 0
-        elif type == 'ReslicedCT-N':
+        elif 'CT-N' in type:
             data[data > 70] = 70
             data[data < 0] = 0
-        elif type == 'ReslicedCT-P_CBV':
+        elif 'CT-P_CBV' in type:
             data[data < 0] = 0
-        elif type == 'ReslicedCT-P_CBF':
+        elif 'CT-P_CBF' in type:
             data[data < 0] = 0
-        elif type =='ReslicedCT-P_Tmax':
+        elif 'CT-P_Tmax' in type:
             data[data < 0] = 0
-
+        else:
+            print("Error applying windowing function!")
 
 
 
@@ -399,30 +405,68 @@ class NormalizedPerfusionAll(NiftyDataset):
 class NormalizedAllModalities(NiftyDataset):
 
     def _load_dataset(self, path, alpha, sigma, rotate, deform):
-        x1 = self._load(self._get_filename(path, 'NormalizedCT-A'))
-        x1 = self.normalize(x1, 'NormalizedCT-A')
-        x2 = self._load(self._get_filename(path, 'NormalizedCT-N'))
-        x2 = self.normalize(x2, 'NormalizedCT-N')
-        x3 = self._load(self._get_filename(path, 'NormalizedCT-P_CBV'))
-        x3 = self.normalize(x3, 'NormalizedCT-P_CBV')
-        x4 = self._load(self._get_filename(path, 'NormalizedCT-P_CBF'))
-        x4 = self.normalize(x4, 'NormalizedCT-P_CBF')
-        x5 = self._load(self._get_filename(path, 'NormalizedCT-P_Tmax'))
-        x5 = self.normalize(x5, 'NormalizedCT-P_Tmax')
-        x = torch.cat((x1, x2, x3, x4, x5), 0)
+        # x1 = self._load(self._get_filename(path, 'NormalizedCT-A'))
+        # x1 = self.normalize(x1, 'NormalizedCT-A')
+        # x2 = self._load(self._get_filename(path, 'NormalizedCT-N'))
+        # x2 = self.normalize(x2, 'NormalizedCT-N')
+        # x3 = self._load(self._get_filename(path, 'NormalizedCT-P_CBV'))
+        # x3 = self.normalize(x3, 'NormalizedCT-P_CBV')
+        # x4 = self._load(self._get_filename(path, 'NormalizedCT-P_CBF'))
+        # x4 = self.normalize(x4, 'NormalizedCT-P_CBF')
+        # x5 = self._load(self._get_filename(path, 'NormalizedCT-P_Tmax'))
+        # x5 = self.normalize(x5, 'NormalizedCT-P_Tmax')
+        # x = torch.cat((x1, x2, x3, x4, x5), 0)
+        # # load all y's
+        # y = self.loadys(path, 'NormalizedLesion')
+        # self._append_item(x, y)
+        # if rotate:
+        #     (x_prime, y_prime) = self._rotate((x, y))
+        #     self._append_item(x_prime, y_prime)
+        # if deform:
+        #     (x_prime, y_prime) = self._deform((x, y), alpha=alpha, sigma=sigma)
+        #     self._append_item(x_prime, y_prime)
+        # if deform and rotate:
+        #     (x_prime, y_prime) = self._rotate((x, y))
+        #     (x_prime, y_prime) = self._deform((x_prime, y_prime), alpha=alpha, sigma=sigma)
+        #     self._append_item(x_prime, y_prime)
+        modalities = ['NormalizedCT-A', 'NormalizedCT-N', 'NormalizedCT-P_CBV', 'NormalizedCT-P_CBF', 'NormalizedCT-P_Tmax']
+        data = []
+        old_infarct_present = False
+        # consider old infarcts
+        if self.load_old_lesions:
+            old_infarcts = self._get_filenames(path, 'NormalizedLesion',
+                                               load_old_infarct=True)  # get filenames of all old infarcts
+            if len(old_infarcts) > 0:  # if old infarct present save it
+                print('Adding old infarct...')
+                old_infarct = self._load(old_infarcts[0])
+                old_infarct = (old_infarct > 0.5).float()
+                old_infarct_present = True
+
+        for mod in modalities:  # load each modality
+            x_ = self._load(self._get_filename(path, mod))
+            if self.use_windowing:  # apply windowing
+                x_ = self.window(x_, mod)
+            x_ = self.normalize(x_, mod)  # normalize
+            if old_infarct_present:  # masking if old infarct is present
+                x_ = (x_ * (
+                            old_infarct.int() * -1 + 1)).float()  # inverting binary mask and then multiplying element-wise
+                # as old infarcts are saved as 1s, but for elementwise mult with mask these voxels need to be zero and the rest 1
+            data.append(x_)  # append to dataset
+
+        x = torch.cat(data, 0)
+        if self.use_mecial_data:  # add med data too
+            patient = path.split('/')[-1]
+            x_med_data = self._load_med_data(patient).double()
+            x = torch.cat((x_med_data, x), 0)
         # load all y's
+        print("--------------------------------------------")
         y = self.loadys(path, 'NormalizedLesion')
-        self._append_item(x, y)
-        if rotate:
-            (x_prime, y_prime) = self._rotate((x, y))
-            self._append_item(x_prime, y_prime)
-        if deform:
-            (x_prime, y_prime) = self._deform((x, y), alpha=alpha, sigma=sigma)
-            self._append_item(x_prime, y_prime)
-        if deform and rotate:
-            (x_prime, y_prime) = self._rotate((x, y))
-            (x_prime, y_prime) = self._deform((x_prime, y_prime), alpha=alpha, sigma=sigma)
-            self._append_item(x_prime, y_prime)
+        # masking if old infarct is present
+        if old_infarct_present:
+            y = (y * (old_infarct.int() * -1 + 1)).float()  # inverting binary mask and then multiplying element-wise
+        print("--------------------------------------------")
+        id = path.split('/')[-1]
+        self._append_item(x, y, id)
 
 class NormalizedAngioNativeTmax(NiftyDataset):
 

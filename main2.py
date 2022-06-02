@@ -58,23 +58,23 @@ dataset_classes = {
 
 
 #runtime variables
-tag = str(sys.argv[1]) if len(sys.argv) > 1 else 'LESS'  # project name tag
-dc_key = int(sys.argv[2]) if len(sys.argv) > 2 else 12  # dictionary key to choose dataset class
-lr = float(sys.argv[3]) if len(sys.argv) > 3 else 0.001  # learning rate
+tag = str(sys.argv[1]) if len(sys.argv) > 1 else 'DELETE'  # project name tag
+dc_key = int(sys.argv[2]) if len(sys.argv) > 2 else 5  # dictionary key to choose dataset class
+lr = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0001  # learning rate
 num_epochs = int(sys.argv[4]) if len(sys.argv) > 4 else 75
-mse = bool(int(sys.argv[5])) if len(sys.argv) > 5 else True
+mse = bool(int(sys.argv[5])) if len(sys.argv) > 5 else False
 
 batchnorm = bool(int(sys.argv[6])) if len(sys.argv) > 6 else True  # wether or not to use batchnorm
 leaky = bool(int(sys.argv[7])) if len(sys.argv) > 7 else True  # whether to use leaky ReLU
 max_pool = bool(int(sys.argv[8])) if len(sys.argv) > 8 else True  # if True use MaxPooling, else AvgPooling
 
-start_data = int(sys.argv[9]) if len(sys.argv) > 9 else -0
+start_data = int(sys.argv[9]) if len(sys.argv) > 9 else -30
 use_medical_data = bool(int(sys.argv[10])) if len(sys.argv) > 10 else True
-split_med_channels = bool(int(sys.argv[11])) if len(sys.argv) > 11 else True
-only_split_tici = bool(int(sys.argv[12])) if len(sys.argv) > 12 else True
-split_modalities = bool(int(sys.argv[13])) if len(sys.argv) > 13 else True
+split_med_channels = bool(int(sys.argv[11])) if len(sys.argv) > 11 else False
+only_split_tici = bool(int(sys.argv[12])) if len(sys.argv) > 12 else False
+split_modalities = bool(int(sys.argv[13])) if len(sys.argv) > 13 else False
 
-windowing = bool(int(sys.argv[14])) if len(sys.argv) > 14 else True
+windowing = bool(int(sys.argv[14])) if len(sys.argv) > 14 else False
 use_gpu = bool(int(sys.argv[15])) if len(sys.argv) > 15 else True
 
 dropout = bool(int(sys.argv[16])) if len(sys.argv) > 16 else False
@@ -106,6 +106,9 @@ data = DatasetClass(data_dir, rotate=rotate, deform=deform, alpha=alpha, sigma=s
                        start = start_data
                        )
 
+
+ml_per_voxel = (numpy.prod(numpy.array(data.dimensionality)) / 1000) / (pow(data.size, 3))
+print("ML PER VOXEL", ml_per_voxel)
 
 
 #split dataset with torch.Subset, for that need indices that are contained in each subset
@@ -286,7 +289,7 @@ def startup_logs():
 
 #compute metrics and save plots for all items in data_obj
 
-def compute_metrics(data_obj, key, generator, metrics, plot_dir, thresholds, best_threshold = None):
+def compute_metrics(data_obj, key, generator, metrics, plot_dir, thresholds, ml_per_voxel , best_threshold = None):
     plot_dir = os.path.join(plot_dir, key)
     print("Plotting for ", key, " set")
     for l, data in enumerate(data_obj): # run thru dataset
@@ -352,7 +355,7 @@ def compute_metrics(data_obj, key, generator, metrics, plot_dir, thresholds, bes
 
         try:
             #save metrics
-            tpr,  auc, dices, diffs, vol_diffs, accuracies, precisions, recalls, fprs, f1s, gt_vol = utils.plot_metrics(score=score, target=y, item=patientid, plot_dir=plot_dir, thresholds=thresholds)
+            tpr,  auc, dices, diffs, vol_diffs, accuracies, precisions, recalls, fprs, f1s, gt_vol = utils.plot_metrics(score=score, target=y, item=patientid, plot_dir=plot_dir, thresholds=thresholds, ml_per_voxel=ml_per_voxel)
             metrics[key]['tpr'].append(tpr)
             metrics[key]['auc'].append(auc)
             metrics[key]['dice'].append(dices)
@@ -597,7 +600,10 @@ def train_unet():
         }
     }
     possible_thresholds = list([round(i * 0.02, 2) for i in range(50)]) # thresholds that are considered
-    compute_metrics(data_obj=dataset, key='training', generator=gen, metrics=metrics, plot_dir=plot_dir, thresholds=possible_thresholds.copy()) # get metrics, plot for those thresholds on training set
+
+
+
+    compute_metrics(data_obj=dataset, key='training', generator=gen, metrics=metrics, plot_dir=plot_dir,ml_per_voxel= ml_per_voxel , thresholds=possible_thresholds.copy()) # get metrics, plot for those thresholds on training set
     #get best threshold
     print("Determining best threshold from training set...")
     df = pd.read_csv(os.path.join(plot_dir, 'training', 'vol_diff.csv'),

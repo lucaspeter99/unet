@@ -216,13 +216,11 @@ def unet_statistics(score, target, thresholds):
 
     return accuracies, precisions, recalls, fprs, f1s
 
-def plot_metrics(score, target, item, plot_dir, thresholds):
+def plot_metrics(score, target, item, plot_dir, thresholds, ml_per_voxel):
     score = score.squeeze(0)
     fig = plt.figure()
     sub_plot = fig.add_subplot(111)
     gt_vol = torch.sum(target.flatten(), [0]).item()
-
-    ml_per_voxel = ((181*219*187)/1000)/(pow(50,3))
 
     gt_vol *= ml_per_voxel
 
