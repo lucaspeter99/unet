@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import utils
 import os
-from modified_models import UNet
+from modified_models import UNetSmallSepMedDataCheckpoint
 import torch
 import numpy
 import matplotlib.pyplot as plt
@@ -94,7 +94,7 @@ for dir in os.listdir(gen_dir):
     path = os.path.join(gen_dir, dir)
     plot_dir = os.path.join(path, val_plot_dir)
     gen_path = os.path.join(path, 'gen.trc')
-    if "SEP_2022-05-04_150_bs10_lr0.001_UNet_Adam_MSELoss_ReslicedAllModalities_medData" not in gen_path:
+    if "NORMTEST_2022-06-03_100_bs5_lr0.001_UNetSmallSepMedDataCheckpoint_Adam_BCELoss_NormalizedAllModalities_medData" not in gen_path:
         continue
     if os.path.isfile(gen_path):
         medData = False

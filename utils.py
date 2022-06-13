@@ -48,7 +48,7 @@ def dice_coefficient(score, target):
     return (overlap / numel).item()
 
 
-def plot_mismatch(y0, y1, item, plot_dir, cmap='viridis'):
+def plot_mismatch(y0, y1, item, plot_dir, center, cmap='viridis'):
     fig = plt.figure(figsize=[5.0, 16.0])
 
 
@@ -61,17 +61,15 @@ def plot_mismatch(y0, y1, item, plot_dir, cmap='viridis'):
     min_diff = torch.min(diff).item()
     max_diff = torch.max(diff).item()
 
-    center = get_center_of_mass(y0[0,0,:,:,:])
-
     for i in range(10):
         y0s.append(plt.subplot2grid((10, 3), (i, 0)))
         mismatches.append(plt.subplot2grid((10, 3), (i, 1)))
         y1s.append(plt.subplot2grid((10,3), (i, 2)))
 
     for i, it in enumerate(y0s):
-        it.imshow(y0[0, 0, int(center[0]) + (2*i) - 10, :, :], cmap='Greys_r', vmin = 0, vmax = 1, interpolation='none')
-        mismatches[i].imshow(diff[0, 0, int(center[0]) + (2*i) - 10, :, :], vmin = -0.5, vmax = 0.5,cmap=cmap, interpolation='none')
-        y1s[i].imshow(y1[0, 0, int(center[0]) + (2*i) - 10, :, :], cmap='Greys_r', vmin = 0, vmax = 1, interpolation='none')
+        it.imshow(y0[0, 0, :,int(center[1]) + (2*i) - 10, :], cmap='Greys_r', vmin = 0, vmax = 1, interpolation='none')
+        mismatches[i].imshow(diff[0, 0, :,int(center[1]) + (2*i) - 10, :], vmin = -0.5, vmax = 0.5,cmap=cmap, interpolation='none')
+        y1s[i].imshow(y1[0, 0, :,int(center[1]) + (2*i) - 10, :], cmap='Greys_r', vmin = 0, vmax = 1, interpolation='none')
 
     #mismatch_sum = torch.sum(torch.abs(diff), (0,1,2,3,4)).item()
 
@@ -81,7 +79,7 @@ def plot_mismatch(y0, y1, item, plot_dir, cmap='viridis'):
     plt.savefig(os.path.join(plot_dir, f'mismatch_{item}.png'))
     plt.close(fig)
 
-def plot_comparison(score, target, item, plot_dir, cmap='Greys_r'):
+def plot_comparison(score, target, item, plot_dir, background, cmap='Greys_r'):
     fig = plt.figure(figsize=[5.0, 16.0])
 
     grounds = []
@@ -89,15 +87,21 @@ def plot_comparison(score, target, item, plot_dir, cmap='Greys_r'):
     gens = []
     center = get_center_of_mass(target[0,:,:,:])
 
+    if center[0] > 37: # avoid out of bounds error
+        center = (37, center[1], center[2])
+    if center[0] < 10:
+        center = (10, center[1], center[2])
+
     for i in range(10):
         grounds.append(plt.subplot2grid((10, 3), (i, 0)))
         comps.append(plt.subplot2grid((10, 3), (i, 1)))
         gens.append(plt.subplot2grid((10,3), (i, 2)))
     for i, it in enumerate(grounds):
-        it.imshow(target[0, int(center[0]) + (2*i) - 10, :, :], cmap=cmap, interpolation='none')
-        gens[i].imshow(score[0, 0, int(center[0]) + (2*i) - 10, :, :], cmap=cmap, vmin = 0, vmax = 1, interpolation='none')
-        comps[i].imshow(score[0, 0, int(center[0]) + (2*i) - 10, :, :], cmap=cmap, vmin = 0, vmax = 1, interpolation='none')
-        comps[i].imshow(target[0, int(center[0]) + (2*i) - 10, :, :], cmap='cividis', alpha = 0.4, interpolation='none')
+        it.imshow(target[0, :, int(center[1]) + (2*i) - 10, :], cmap=cmap, interpolation='none')
+        it.imshow(background[:, int(center[1]) + (2*i) - 10, :], cmap=cmap, interpolation='none', alpha = 0.4)
+        gens[i].imshow(score[0, 0, :, int(center[1]) + (2*i) - 10, :], cmap=cmap, vmin = 0, vmax = 1, interpolation='none')
+        comps[i].imshow(score[0, 0, :, int(center[1]) + (2*i) - 10, :], cmap=cmap, vmin = 0, vmax = 1, interpolation='none')
+        comps[i].imshow(target[0, :, int(center[1]) + (2*i) - 10, :], cmap='cividis', alpha = 0.4, interpolation='none')
 
 
 
@@ -106,6 +110,7 @@ def plot_comparison(score, target, item, plot_dir, cmap='Greys_r'):
         os.makedirs(plot_dir)
     plt.savefig(os.path.join(plot_dir, f'comp_ext_{item}.png'))
     plt.close(fig)
+    return center
 
 
 def unet_dice_coefficient(input, target, thresholds):  # 1 if inputs are identical
