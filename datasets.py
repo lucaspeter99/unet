@@ -50,9 +50,15 @@ class NiftyDataset(Dataset):
         self.use_windowing = use_windowing
         if use_medical_data:
             #load demographics files
-            df = pd.read_excel('./demographics/demographics_1.xlsx')
-            df2 = pd.read_excel('./demographics/demographics_2.xlsx')
-            df = pd.concat([df, df2]) # combine dataframes
+            if 'll337mdee' in os.getcwd():
+                df = pd.read_excel('./lesions/demographics/demographics_1.xlsx')
+                df2 = pd.read_excel('./lesions/demographics/demographics_2.xlsx')
+                df3 = pd.read_excel('./lesions/demographics/demographics_3.xlsx')
+            else:
+                df = pd.read_excel('./demographics/demographics_1.xlsx')
+                df2 = pd.read_excel('./demographics/demographics_2.xlsx')
+                df3 = pd.read_excel('./demographics/demographics_3.xlsx')
+            df = pd.concat([df, df2, df3]) # combine dataframes
             df.set_index("patients_id", inplace=True)
             #convert data to proper formats and types, normalize relevant columns
             #age
@@ -453,7 +459,7 @@ class NormalizedAllModalities(NiftyDataset):
                 # as old infarcts are saved as 1s, but for elementwise mult with mask these voxels need to be zero and the rest 1
             data.append(x_)  # append to dataset
 
-        x = torch.cat(data, 0)
+        x = torch.cat(data, 0).double()
         if self.use_mecial_data:  # add med data too
             patient = path.split('/')[-1]
             x_med_data = self._load_med_data(patient).double()
@@ -628,7 +634,7 @@ class ReslicedAllModalities(NiftyDataset):
                                                                 # as old infarcts are saved as 1s, but for elementwise mult with mask these voxels need to be zero and the rest 1
             data.append(x_) #append to dataset
 
-        x = torch.cat(data,0)
+        x = torch.cat(data,0).double()
         if self.use_mecial_data: # add med data too
             patient = path.split('/')[-1]
             x_med_data = self._load_med_data(patient).double()

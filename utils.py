@@ -55,6 +55,7 @@ def plot_mismatch(y0, y1, item, plot_dir, center, cmap='viridis'):
 
     y0s = []
     mismatches = []
+    mismatches = []
     y1s = []
     diff = torch.sub(y1, y0) # erfolgreich - nicht erfolgreich
     avg_diff = diff.mean()
